@@ -5,19 +5,17 @@ This document explains how to set up, develop, and submit changes for the SDK mo
 
 ## Development Setup
 
-1. Open the repository in Android Studio.
+1. Open the repository in your IDE.
 2. Sync Gradle.
 3. Build the SDK module:
 
 ```zsh
-cd /Users/nate/AndroidStudioProjects/StarkK
 ./gradlew :starkk:assembleDebug
 ```
 
 4. Run unit tests:
 
 ```zsh
-cd /Users/nate/AndroidStudioProjects/StarkK
 ./gradlew :starkk:testDebugUnitTest
 ```
 
