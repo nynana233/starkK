@@ -31,6 +31,29 @@ val client = StarkKClient.Builder()
 
 ```
 
+### 3. Fetch Data
+
+#### Option A: Single Page (Result-based)
+```kotlin
+viewModelScope.launch {
+    val result = client.getCharacters(page = 1, pageSize = 20)
+    result
+        .onSuccess { paginated -> /* use paginated.data */ }
+        .onFailure { error -> /* handle error */ }
+}
+```
+
+#### Option B: All Pages (Flow-based, auto-pagination)
+```kotlin
+import com.starkk.sdk.extensions.getCharactersAsFlow
+
+viewModelScope.launch {
+    client.getCharactersAsFlow(pageSize = 50).collect { characters ->
+        // Called once per page, automatically walks all pages
+    }
+}
+```
+
 ---
 
 ## 📋 Requirements
