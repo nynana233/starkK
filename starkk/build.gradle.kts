@@ -1,11 +1,19 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.serialization)
+    `maven-publish`
 }
 
 android {
     namespace = "com.starkk.sdk"
     compileSdk = 36
+
+    publishing {
+        singleVariant("release") {
+            withSourcesJar()
+            withJavadocJar()
+        }
+    }
 
     defaultConfig {
         minSdk = 21
@@ -53,3 +61,16 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 
+afterEvaluate {
+    publishing {
+        publications {
+            create<MavenPublication>("release") {
+                groupId = "com.github.nanayaw"
+                artifactId = "starkk"
+                version = "1.0.0"
+
+                from(components["release"])
+            }
+        }
+    }
+}
