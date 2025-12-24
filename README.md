@@ -17,7 +17,7 @@ Add the starkk module to your project:
 
 ```gradle
 dependencies {
-    implementation(project(":starkk"))
+    implementation 'com.github.nynana233:starkK:1.3'
 }
 ```
 
