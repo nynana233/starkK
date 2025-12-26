@@ -24,3 +24,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "StarkK"
 include(":starkk")
+include(":app-sample")
