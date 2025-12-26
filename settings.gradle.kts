@@ -20,6 +20,11 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
+    versionCatalogs {
+        create("appSampleLibs") {
+            from(files("gradle/app-sample-libs.versions.toml"))
+        }
+    }
 }
 
 rootProject.name = "StarkK"
