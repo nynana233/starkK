@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.StarkK" parent="Theme.MaterialComponents.Light" />
+</resources>
