@@ -123,4 +123,25 @@ class StarkKSampleViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Example 2: Using Flow for houses
+     * Demonstrates auto-pagination through all houses using Flow
+     */
+    fun loadHousesFlow() {
+        viewModelScope.launch {
+            _isHousesLoading.value = true
+            _houses.value = emptyList()
+
+            try {
+                client.getHousesAsFlow(pageSize = 50).collect { pageHouses ->
+                    _houses.value = _houses.value + pageHouses
+                }
+            } catch (e: Exception) {
+                _singleResult.value = "Error loading houses: ${e.message}"
+            } finally {
+                _isHousesLoading.value = false
+            }
+        }
+    }
 }
