@@ -222,5 +222,41 @@ class StarkKSampleViewModel : ViewModel() {
         }
     }
 
+    /**
+     * Example 5: Query books with pagination info
+     */
+    fun queryBook() {
+        viewModelScope.launch {
+            _isSingleQueryLoading.value = true
+            _singleResult.value = "Fetching books..."
 
+            val result = client.getBooks(page = 1, pageSize = 5)
+
+            result
+                .onSuccess { paginated ->
+                    if (paginated.data.isEmpty()) {
+                        _singleResult.value = "No books found"
+                    } else {
+                        val book = paginated.data.random()
+                        _singleResult.value = buildString {
+                            append("✓ Found!\n\n")
+                            append("Title: ${book.name}\n")
+                            append("ISBN: ${book.isbn}\n")
+                            append("Released: ${book.released}\n")
+                            append("Pages: ${book.numberOfPages}\n")
+                            append("Authors: ${book.authors.joinToString(", ")}\n")
+                            append("\n📊 Pagination Info:\n")
+                            append("Has Next: ${paginated.hasNextPage}\n")
+                            append("Total Books (this page): ${paginated.data.size}")
+                        }
+                    }
+                }
+                .onFailure { exception ->
+                    _singleResult.value = "✗ Error: ${exception.message}"
+                }
+
+
+            _isSingleQueryLoading.value = false
+        }
+    }
 }
