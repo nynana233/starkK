@@ -144,4 +144,83 @@ class StarkKSampleViewModel : ViewModel() {
             }
         }
     }
+
+    /**
+     * Example 3: Using Result<T> for single query
+     * Demonstrates error handling with Kotlin Result type
+     */
+    fun queryCharacterByName(name: String) {
+        viewModelScope.launch {
+            _isSingleQueryLoading.value = true
+            _singleResult.value = "Searching for '$name'..."
+
+            val result = client.getCharactersByName(name, pageSize = 10)
+
+            result
+                .onSuccess { paginated ->
+                    if (paginated.data.isEmpty()) {
+                        _singleResult.value = "No characters found matching '$name'"
+                    } else {
+                        val character = paginated.data.first()
+                        _singleResult.value = buildString {
+                            append("✓ Found!\n\n")
+                            append("Name: ${character.name}\n")
+                            append("Gender: ${character.gender}\n")
+                            append("Culture: ${character.culture}\n")
+                            append("Born: ${character.born}\n")
+                            if (character.titles.isNotEmpty()) {
+                                append("Titles: ${character.titles.joinToString(", ")}\n")
+                            }
+                            if (character.aliases.isNotEmpty()) {
+                                append("Aliases: ${character.aliases.joinToString(", ")}\n")
+                            }
+                        }
+                    }
+                }
+                .onFailure { exception ->
+                    _singleResult.value = "✗ Error: ${exception.message}"
+                }
+
+            _isSingleQueryLoading.value = false
+        }
+    }
+
+    /**
+     * Example 4: Query houses by name
+     */
+    fun queryHouseByName(name: String) {
+        viewModelScope.launch {
+            _isSingleQueryLoading.value = true
+            _singleResult.value = "Searching for '$name'..."
+
+            val result = client.getHousesByName(name, pageSize = 10)
+
+            result
+                .onSuccess { paginated ->
+                    if (paginated.data.isEmpty()) {
+                        _singleResult.value = "No houses found matching '$name'"
+                    } else {
+                        val house = paginated.data.first()
+                        _singleResult.value = buildString {
+                            append("✓ Found!\n\n")
+                            append("Name: ${house.name}\n")
+                            append("Region: ${house.region}\n")
+                            if (house.words.isNotEmpty()) {
+                                append("Words: \"${house.words}\"\n")
+                            }
+                            if (house.titles.isNotEmpty()) {
+                                append("Titles: ${house.titles.take(2).joinToString(", ")}\n")
+                            }
+                        }
+                    }
+                }
+                .onFailure { exception ->
+                    _singleResult.value = "✗ Error: ${exception.message}"
+                }
+
+            _isSingleQueryLoading.value = false
+        }
+    }
+
+
 }
