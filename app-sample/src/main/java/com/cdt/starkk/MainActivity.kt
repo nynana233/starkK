@@ -4,8 +4,11 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,10 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cdt.starkk.ui.theme.StarkKTheme
+import com.starkk.sdk.models.Character
+import com.starkk.sdk.models.House
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -84,3 +90,71 @@ fun StarkKSampleApp(modifier: Modifier = Modifier) {
 
     }
 }
+
+
+@Composable
+fun CharacterCard(character: Character) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(
+                text = character.name.ifEmpty { "Unknown" },
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(text = "Gender: ${character.gender.ifEmpty { "N/A" }}", fontSize = 12.sp)
+                Text(text = "Culture: ${character.culture.ifEmpty { "N/A" }}", fontSize = 12.sp)
+            }
+            if (character.titles.isNotEmpty()) {
+                Text(
+                    text = "Titles: ${character.titles.joinToString(", ")}",
+                    fontSize = 11.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun HouseCard(house: House) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White)
+            .padding(8.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(
+                text = house.name.ifEmpty { "Unknown" },
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp
+            )
+            Text(text = "Region: ${house.region.ifEmpty { "N/A" }}", fontSize = 12.sp)
+            if (house.words.isNotEmpty()) {
+                Text(
+                    text = "\"${house.words}\"",
+                    fontSize = 11.sp,
+                    color = Color.Gray,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            if (house.titles.isNotEmpty()) {
+                Text(
+                    text = "Titles: ${house.titles.take(2).joinToString(", ")}",
+                    fontSize = 10.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
