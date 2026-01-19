@@ -201,6 +201,51 @@ fun CharactersTab(viewModel: StarkKSampleViewModel) {
     }
 }
 
+@Composable
+fun HousesTab(viewModel: StarkKSampleViewModel) {
+    val houses by viewModel.houses.collectAsState()
+    val isLoading by viewModel.isHousesLoading.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Button(
+            onClick = {
+                scope.launch {
+                    viewModel.loadHousesFlow()
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(16.dp),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+            Text(if (isLoading) "Loading..." else "Load All Houses (Flow)")
+        }
+
+        if (houses.isEmpty() && !isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Tap 'Load All Houses' to fetch data using Flow", fontSize = 14.sp)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(houses) { house ->
+                    HouseCard(house)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun CharacterCard(character: Character) {
