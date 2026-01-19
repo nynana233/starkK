@@ -12,14 +12,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import com.cdt.starkk.ui.theme.StarkKTheme
 import com.starkk.sdk.models.Character
 import com.starkk.sdk.models.House
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -88,6 +98,106 @@ fun StarkKSampleApp(modifier: Modifier = Modifier) {
         }
 
 
+    }
+}
+
+@Composable
+fun CharactersTab(viewModel: StarkKSampleViewModel) {
+    val characters by viewModel.characters.collectAsState()
+    val isLoading by viewModel.isCharactersLoading.collectAsState()
+    val currentPage by viewModel.currentCharacterPage.collectAsState()
+    val scope = rememberCoroutineScope()
+    var pageSize by remember { mutableIntStateOf(20) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Controls
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Page Size: $pageSize",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            viewModel.previousCharacterPage(pageSize)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading && currentPage > 1
+                ) {
+                    Text("← Prev")
+                }
+
+                Text(
+                    text = "Page $currentPage",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                )
+
+                Button(
+                    onClick = {
+                        scope.launch {
+                            viewModel.nextCharacterPage(pageSize)
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                    enabled = !isLoading
+                ) {
+                    Text("Next →")
+                }
+            }
+        }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    viewModel.loadCharactersPage(page = 1, pageSize = pageSize)
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .padding(16.dp),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp).size(32.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+            Text(if (isLoading) "Loading..." else "Reload Pages")
+        }
+
+        if (characters.isEmpty() && !isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Tap 'Load Page' to fetch paginated character data", fontSize = 14.sp)
+            }
+        } else {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(characters) { character ->
+                    CharacterCard(character)
+                }
+            }
+        }
     }
 }
 
