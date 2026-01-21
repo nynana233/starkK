@@ -248,6 +248,97 @@ fun HousesTab(viewModel: StarkKSampleViewModel) {
 }
 
 @Composable
+fun SingleQueryTab(viewModel: StarkKSampleViewModel) {
+    val result by viewModel.singleResult.collectAsState()
+    val isLoading by viewModel.isSingleQueryLoading.collectAsState()
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            text = "Single Query Example (Result<T> Error Handling)",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+
+        Button(
+            onClick = {
+                scope.launch {
+                    viewModel.queryCharacterByName("Jon Snow")
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+            Text(if (isLoading) "Searching..." else "Search 'Jon Snow'")
+        }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    viewModel.queryHouseByName("House Stark")
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+            Text(if (isLoading) "Searching..." else "Search 'House Stark'")
+        }
+
+        Button(
+            onClick = {
+                scope.launch {
+                    viewModel.queryBook()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(end = 8.dp),
+                    strokeWidth = 2.dp
+                )
+            }
+            Text(if (isLoading) "Loading..." else "Get Random Book")
+        }
+
+        if (result.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                text = "Result:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .padding(12.dp)
+            ) {
+                Text(text = result, fontSize = 11.sp)
+            }
+        }
+    }
+}
+
+@Composable
 fun CharacterCard(character: Character) {
     Box(
         modifier = Modifier
