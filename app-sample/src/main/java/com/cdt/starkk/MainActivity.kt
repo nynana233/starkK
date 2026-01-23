@@ -97,7 +97,12 @@ fun StarkKSampleApp(modifier: Modifier = Modifier) {
             )
         }
 
-
+        // Tab Content
+        when (selectedTab) {
+            0 -> HousesTab(viewModel)
+            1 -> CharactersTab(viewModel)
+            2 -> SingleQueryTab(viewModel)
+        }
     }
 }
 
