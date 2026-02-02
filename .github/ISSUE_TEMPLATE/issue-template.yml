@@ -1,5 +1,5 @@
 name: StarkK SDK Issue
-about: Report bugs, request features, or raise documentation issues for the StarkK SDK.
+description: Report bugs, request features, or raise documentation issues for the StarkK SDK.
 title: "[StarkK] "
 labels: ["sdk", "triage"]
 body:
