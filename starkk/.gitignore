@@ -1,0 +1,24 @@
+/build/
+/.gradle/
+*.gradle.kts.bak
+gradlew.bat
+.idea/
+.settings/
+bin/
+
+# Build outputs
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.aar
+
+# Test outputs
+/test-results/
+*.coverage
+*.profdata
+
+# Kotlin
+.kotlin/
+
