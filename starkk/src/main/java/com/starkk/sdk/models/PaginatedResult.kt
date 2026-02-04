@@ -13,7 +13,7 @@ package com.starkk.sdk.models
  * @property first URL for the first page, or `null` if not provided.
  * @property last URL for the last page, or `null` if not provided.
  */
-data class PaginatedResult<T>(
+internal data class PaginatedResult<T>(
     val data: List<T>,
     val next: String? = null,
     val prev: String? = null,
