@@ -1,10 +1,12 @@
 package com.starkk.sdk.extensions
 
 import com.starkk.sdk.StarkKClient
+import com.starkk.sdk.StarkKException
 import com.starkk.sdk.models.Book
 import com.starkk.sdk.models.Character
 import com.starkk.sdk.models.House
-import com.starkk.sdk.models.PaginatedResult
+import com.starkk.sdk.models.StarkKPage
+import com.starkk.sdk.models.StarkKPageResult
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 
@@ -112,15 +114,23 @@ fun StarkKClient.getBooksAsFlow(
  * then follows the `next` URL repeatedly until exhausted.
  */
 private fun <T> paginatedFlow(
-    firstPage: suspend () -> Result<PaginatedResult<T>>,
-    nextPage: suspend (url: String) -> Result<PaginatedResult<T>>,
+    firstPage: suspend () -> StarkKPageResult<T>,
+    nextPage: suspend (url: String) -> StarkKPageResult<T>,
 ): Flow<List<T>> = flow {
-    var result: PaginatedResult<T> = firstPage().getOrThrow()
-    emit(result.data)
+    var page: StarkKPage<T> = firstPage().unwrap()
+    emit(page.items)
 
-    while (result.hasNextPage) {
-        result = nextPage(result.next!!).getOrThrow()
-        emit(result.data)
+    while (page.hasNext) {
+        page = nextPage(page.nextUrl!!).unwrap()
+        emit(page.items)
     }
 }
 
+/**
+ * Unwraps a [StarkKPageResult] into a [StarkKPage], throwing
+ * the [StarkKException] if the result is a failure.
+ */
+private fun <T> StarkKPageResult<T>.unwrap(): StarkKPage<T> = when (this) {
+    is StarkKPageResult.Success -> page
+    is StarkKPageResult.Failure -> throw exception
+}
