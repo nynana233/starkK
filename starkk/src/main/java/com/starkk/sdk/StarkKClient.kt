@@ -6,6 +6,8 @@ import com.starkk.sdk.models.Book
 import com.starkk.sdk.models.Character
 import com.starkk.sdk.models.House
 import com.starkk.sdk.models.PaginatedResult
+import com.starkk.sdk.models.StarkKPage
+import com.starkk.sdk.models.StarkKPageResult
 import com.starkk.sdk.network.IceAndFireApi
 import com.starkk.sdk.network.PaginationParser
 import kotlinx.serialization.json.Json
@@ -16,6 +18,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -25,8 +28,8 @@ import java.util.concurrent.TimeUnit
  * Obtain an instance via [Builder]:
  *
  * All public functions are **suspend** functions that return
- * [Result]<[PaginatedResult]<T>> so callers can handle errors
- * idiomatically with `getOrNull()`, `onSuccess {}`, etc.
+ * [StarkKPageResult]<T> so callers can handle success/failure
+ * idiomatically with `.onSuccess {}` / `.onFailure {}`.
  */
 class StarkKClient internal constructor(
     private val api: IceAndFireApi,
@@ -43,7 +46,7 @@ class StarkKClient internal constructor(
     suspend fun getCharacters(
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<Character>> = safeApiCall {
+    ): StarkKPageResult<Character> = safeApiCall(page) {
         api.getCharacters(page, pageSize)
     }
 
@@ -54,7 +57,7 @@ class StarkKClient internal constructor(
         name: String,
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<Character>> = safeApiCall {
+    ): StarkKPageResult<Character> = safeApiCall(page) {
         api.getCharactersByName(name, page, pageSize)
     }
 
@@ -70,20 +73,45 @@ class StarkKClient internal constructor(
         isAlive: Boolean? = null,
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<Character>> = safeApiCall {
+    ): StarkKPageResult<Character> = safeApiCall(page) {
         api.getCharactersByQuery(name, gender, culture, born, died, isAlive, page, pageSize)
     }
 
     /**
-     * Fetch a page of characters using a full URL (typically from pagination).
+     * Fetch the next page of characters from the given [page] cursor.
+     *
+     * @return The next [StarkKPageResult], or `null` if there is no next page.
      */
-    suspend fun getCharactersByUrl(
+    suspend fun nextCharacters(
+        page: StarkKPage<Character>,
+    ): StarkKPageResult<Character>? {
+        val url = page.nextUrl ?: return null
+        return safeApiCall { api.getCharactersByUrl(url) }
+    }
+
+    /**
+     * Fetch the previous page of characters from the given [page] cursor.
+     *
+     * @return The previous [StarkKPageResult], or `null` if there is no previous page.
+     */
+    suspend fun previousCharacters(
+        page: StarkKPage<Character>,
+    ): StarkKPageResult<Character>? {
+        val url = page.prevUrl ?: return null
+        return safeApiCall { api.getCharactersByUrl(url) }
+    }
+
+    /**
+     * Fetch a page of characters using a full URL (typically from pagination).
+     * @suppress Internal — use [nextCharacters] / [previousCharacters] instead.
+     */
+    internal suspend fun getCharactersByUrl(
         url: String,
-    ): Result<PaginatedResult<Character>> = safeApiCall {
+    ): StarkKPageResult<Character> = safeApiCall {
         api.getCharactersByUrl(url)
     }
 
-    // Houses
+    // ── Houses ──────────────────────────────────────────────────
 
     /**
      * Fetch a page of houses.
@@ -91,7 +119,7 @@ class StarkKClient internal constructor(
     suspend fun getHouses(
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<House>> = safeApiCall {
+    ): StarkKPageResult<House> = safeApiCall(page) {
         api.getHouses(page, pageSize)
     }
 
@@ -102,7 +130,7 @@ class StarkKClient internal constructor(
         name: String,
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<House>> = safeApiCall {
+    ): StarkKPageResult<House> = safeApiCall(page) {
         api.getHousesByName(name, page, pageSize)
     }
 
@@ -120,7 +148,7 @@ class StarkKClient internal constructor(
         hasAncestralWeapons: Boolean? = null,
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<House>> = safeApiCall {
+    ): StarkKPageResult<House> = safeApiCall(page) {
         api.getHousesByQuery(
             name, region, words, hasWords, hasTitles,
             hasSeats, hasDiedOut, hasAncestralWeapons, page, pageSize,
@@ -128,15 +156,40 @@ class StarkKClient internal constructor(
     }
 
     /**
-     * Fetch a page of houses using a full URL (typically from pagination).
+     * Fetch the next page of houses from the given [page] cursor.
+     *
+     * @return The next [StarkKPageResult], or `null` if there is no next page.
      */
-    suspend fun getHousesByUrl(
+    suspend fun nextHouses(
+        page: StarkKPage<House>,
+    ): StarkKPageResult<House>? {
+        val url = page.nextUrl ?: return null
+        return safeApiCall { api.getHousesByUrl(url) }
+    }
+
+    /**
+     * Fetch the previous page of houses from the given [page] cursor.
+     *
+     * @return The previous [StarkKPageResult], or `null` if there is no previous page.
+     */
+    suspend fun previousHouses(
+        page: StarkKPage<House>,
+    ): StarkKPageResult<House>? {
+        val url = page.prevUrl ?: return null
+        return safeApiCall { api.getHousesByUrl(url) }
+    }
+
+    /**
+     * Fetch a page of houses using a full URL (typically from pagination).
+     * @suppress Internal — use [nextHouses] / [previousHouses] instead.
+     */
+    internal suspend fun getHousesByUrl(
         url: String,
-    ): Result<PaginatedResult<House>> = safeApiCall {
+    ): StarkKPageResult<House> = safeApiCall {
         api.getHousesByUrl(url)
     }
 
-    // Books
+    // ── Books ───────────────────────────────────────────────────
 
     /**
      * Fetch a page of books.
@@ -144,7 +197,7 @@ class StarkKClient internal constructor(
     suspend fun getBooks(
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<Book>> = safeApiCall {
+    ): StarkKPageResult<Book> = safeApiCall(page) {
         api.getBooks(page, pageSize)
     }
 
@@ -155,41 +208,71 @@ class StarkKClient internal constructor(
         name: String,
         page: Int = 1,
         pageSize: Int = 10,
-    ): Result<PaginatedResult<Book>> = safeApiCall {
+    ): StarkKPageResult<Book> = safeApiCall(page) {
         api.getBooksByName(name, page, pageSize)
     }
 
     /**
-     * Fetch a page of books using a full URL (typically from pagination).
+     * Fetch the next page of books from the given [page] cursor.
+     *
+     * @return The next [StarkKPageResult], or `null` if there is no next page.
      */
-    suspend fun getBooksByUrl(
+    suspend fun nextBooks(
+        page: StarkKPage<Book>,
+    ): StarkKPageResult<Book>? {
+        val url = page.nextUrl ?: return null
+        return safeApiCall { api.getBooksByUrl(url) }
+    }
+
+    /**
+     * Fetch the previous page of books from the given [page] cursor.
+     *
+     * @return The previous [StarkKPageResult], or `null` if there is no previous page.
+     */
+    suspend fun previousBooks(
+        page: StarkKPage<Book>,
+    ): StarkKPageResult<Book>? {
+        val url = page.prevUrl ?: return null
+        return safeApiCall { api.getBooksByUrl(url) }
+    }
+
+    /**
+     * Fetch a page of books using a full URL (typically from pagination).
+     * @suppress Internal — use [nextBooks] / [previousBooks] instead.
+     */
+    internal suspend fun getBooksByUrl(
         url: String,
-    ): Result<PaginatedResult<Book>> = safeApiCall {
+    ): StarkKPageResult<Book> = safeApiCall {
         api.getBooksByUrl(url)
     }
 
     // Internals
 
     /**
-     * Wraps a Retrofit call in [Result], parsing the Link header on success
-     * or capturing the exception on failure.
+     * Wraps a Retrofit call in [StarkKPageResult], parsing the Link header
+     * on success or wrapping the exception in [StarkKException] on failure.
+     *
+     * @param requestedPage The page number the caller requested (used as
+     *                      fallback when the Link header cannot be parsed).
      */
     private inline fun <T> safeApiCall(
+        requestedPage: Int = 1,
         call: () -> Response<List<T>>,
-    ): Result<PaginatedResult<T>> = runCatching {
+    ): StarkKPageResult<T> = try {
         val response = call()
         if (response.isSuccessful) {
-            PaginationParser.parse(response)
+            val paginated = PaginationParser.parse(response)
+            StarkKPageResult.Success(StarkKPage.from(paginated, requestedPage))
         } else {
-            throw HttpException(response.code(), response.message())
+            StarkKPageResult.Failure(
+                StarkKException.HttpError(response.code(), response.message()),
+            )
         }
+    } catch (e: IOException) {
+        StarkKPageResult.Failure(StarkKException.NetworkError(e))
+    } catch (e: Exception) {
+        StarkKPageResult.Failure(StarkKException.UnknownError(e))
     }
-
-    /**
-     * Exception representing an unsuccessful HTTP response.
-     */
-    class HttpException(val code: Int, override val message: String) :
-        RuntimeException("HTTP $code: $message")
 
     // Builder
 
