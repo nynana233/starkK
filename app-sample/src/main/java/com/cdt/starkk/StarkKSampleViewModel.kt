@@ -6,6 +6,7 @@ import com.starkk.sdk.StarkKClient
 import com.starkk.sdk.extensions.getHousesAsFlow
 import com.starkk.sdk.models.Character
 import com.starkk.sdk.models.House
+import com.starkk.sdk.models.StarkKPage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +38,8 @@ class StarkKSampleViewModel : ViewModel() {
     private val _currentCharacterPage = MutableStateFlow(1)
     val currentCharacterPage: StateFlow<Int> = _currentCharacterPage.asStateFlow()
 
-    private var characterPaginationUrls: Map<String, String?> = emptyMap()
+    /** Cursor holding the last fetched character page (used for next/previous navigation). */
+    private var lastCharacterPage: StarkKPage<Character>? = null
 
     /**
      * Example 1: Using pagination with manual page control
@@ -47,16 +49,11 @@ class StarkKSampleViewModel : ViewModel() {
         viewModelScope.launch {
             _isCharactersLoading.value = true
 
-            val result = client.getCharacters(page = page, pageSize = pageSize)
-
-            result
-                .onSuccess { paginated ->
-                    _characters.value = paginated.data
-                    _currentCharacterPage.value = page
-                    characterPaginationUrls = mapOf(
-                        "next" to paginated.next,
-                        "prev" to paginated.prev
-                    )
+            client.getCharacters(page = page, pageSize = pageSize)
+                .onSuccess { starkKPage ->
+                    _characters.value = starkKPage.items
+                    _currentCharacterPage.value = starkKPage.currentPage
+                    lastCharacterPage = starkKPage
                 }
                 .onFailure { exception ->
                     _singleResult.value = "Error loading characters: ${exception.message}"
@@ -67,60 +64,58 @@ class StarkKSampleViewModel : ViewModel() {
     }
 
     /**
-     * Navigate to next character page
+     * Navigate to next character page using the stored cursor.
+     *
+     * @param pageSize Accepted for caller convenience; the cursor URL
+     *                 already contains the page size from the initial load.
      */
-    fun nextCharacterPage(pageSize: Int) {
-        val nextUrl = characterPaginationUrls["next"]
-        if (nextUrl != null) {
-            viewModelScope.launch {
-                _isCharactersLoading.value = true
+    @Suppress("UNUSED_PARAMETER")
+    fun nextCharacterPage(pageSize: Int = 10) {
+        val cursor = lastCharacterPage ?: return
+        if (!cursor.hasNext) return
 
-                val result = client.getCharactersByUrl(nextUrl)
+        viewModelScope.launch {
+            _isCharactersLoading.value = true
 
-                result
-                    .onSuccess { paginated ->
-                        _characters.value = paginated.data
-                        _currentCharacterPage.value += 1
-                        characterPaginationUrls = mapOf(
-                            "next" to paginated.next,
-                            "prev" to paginated.prev
-                        )
-                    }
-                    .onFailure { exception ->
-                        _singleResult.value = "Error loading characters: ${exception.message}"
-                    }
+            client.nextCharacters(cursor)
+                ?.onSuccess { starkKPage ->
+                    _characters.value = starkKPage.items
+                    _currentCharacterPage.value = starkKPage.currentPage
+                    lastCharacterPage = starkKPage
+                }
+                ?.onFailure { exception ->
+                    _singleResult.value = "Error loading characters: ${exception.message}"
+                }
 
-                _isCharactersLoading.value = false
-            }
+            _isCharactersLoading.value = false
         }
     }
 
     /**
-     * Navigate to previous character page
+     * Navigate to previous character page using the stored cursor.
+     *
+     * @param pageSize Accepted for caller convenience; the cursor URL
+     *                 already contains the page size from the initial load.
      */
-    fun previousCharacterPage(pageSize: Int) {
-        val prevUrl = characterPaginationUrls["prev"]
-        if (prevUrl != null) {
-            viewModelScope.launch {
-                _isCharactersLoading.value = true
+    @Suppress("UNUSED_PARAMETER")
+    fun previousCharacterPage(pageSize: Int = 10) {
+        val cursor = lastCharacterPage ?: return
+        if (!cursor.hasPrevious) return
 
-                val result = client.getCharactersByUrl(prevUrl)
+        viewModelScope.launch {
+            _isCharactersLoading.value = true
 
-                result
-                    .onSuccess { paginated ->
-                        _characters.value = paginated.data
-                        _currentCharacterPage.value -= 1
-                        characterPaginationUrls = mapOf(
-                            "next" to paginated.next,
-                            "prev" to paginated.prev
-                        )
-                    }
-                    .onFailure { exception ->
-                        _singleResult.value = "Error loading characters: ${exception.message}"
-                    }
+            client.previousCharacters(cursor)
+                ?.onSuccess { starkKPage ->
+                    _characters.value = starkKPage.items
+                    _currentCharacterPage.value = starkKPage.currentPage
+                    lastCharacterPage = starkKPage
+                }
+                ?.onFailure { exception ->
+                    _singleResult.value = "Error loading characters: ${exception.message}"
+                }
 
-                _isCharactersLoading.value = false
-            }
+            _isCharactersLoading.value = false
         }
     }
 
@@ -146,22 +141,20 @@ class StarkKSampleViewModel : ViewModel() {
     }
 
     /**
-     * Example 3: Using Result<T> for single query
-     * Demonstrates error handling with Kotlin Result type
+     * Example 3: Using StarkKPageResult for single query
+     * Demonstrates error handling with onSuccess/onFailure
      */
     fun queryCharacterByName(name: String) {
         viewModelScope.launch {
             _isSingleQueryLoading.value = true
             _singleResult.value = "Searching for '$name'..."
 
-            val result = client.getCharactersByName(name, pageSize = 10)
-
-            result
-                .onSuccess { paginated ->
-                    if (paginated.data.isEmpty()) {
+            client.getCharactersByName(name, pageSize = 10)
+                .onSuccess { page ->
+                    if (page.items.isEmpty()) {
                         _singleResult.value = "No characters found matching '$name'"
                     } else {
-                        val character = paginated.data.first()
+                        val character = page.items.first()
                         _singleResult.value = buildString {
                             append("✓ Found!\n\n")
                             append("Name: ${character.name}\n")
@@ -193,14 +186,12 @@ class StarkKSampleViewModel : ViewModel() {
             _isSingleQueryLoading.value = true
             _singleResult.value = "Searching for '$name'..."
 
-            val result = client.getHousesByName(name, pageSize = 10)
-
-            result
-                .onSuccess { paginated ->
-                    if (paginated.data.isEmpty()) {
+            client.getHousesByName(name, pageSize = 10)
+                .onSuccess { page ->
+                    if (page.items.isEmpty()) {
                         _singleResult.value = "No houses found matching '$name'"
                     } else {
-                        val house = paginated.data.first()
+                        val house = page.items.first()
                         _singleResult.value = buildString {
                             append("✓ Found!\n\n")
                             append("Name: ${house.name}\n")
@@ -230,14 +221,12 @@ class StarkKSampleViewModel : ViewModel() {
             _isSingleQueryLoading.value = true
             _singleResult.value = "Fetching books..."
 
-            val result = client.getBooks(page = 1, pageSize = 5)
-
-            result
-                .onSuccess { paginated ->
-                    if (paginated.data.isEmpty()) {
+            client.getBooks(page = 1, pageSize = 5)
+                .onSuccess { page ->
+                    if (page.items.isEmpty()) {
                         _singleResult.value = "No books found"
                     } else {
-                        val book = paginated.data.random()
+                        val book = page.items.random()
                         _singleResult.value = buildString {
                             append("✓ Found!\n\n")
                             append("Title: ${book.name}\n")
@@ -246,8 +235,8 @@ class StarkKSampleViewModel : ViewModel() {
                             append("Pages: ${book.numberOfPages}\n")
                             append("Authors: ${book.authors.joinToString(", ")}\n")
                             append("\n📊 Pagination Info:\n")
-                            append("Has Next: ${paginated.hasNextPage}\n")
-                            append("Total Books (this page): ${paginated.data.size}")
+                            append("Has Next: ${page.hasNext}\n")
+                            append("Total Books (this page): ${page.items.size}")
                         }
                     }
                 }
