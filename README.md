@@ -5,7 +5,8 @@ A production-ready **Kotlin-first Android SDK** for [An API of Ice And Fire](htt
 - 🔄 **Kotlin Coroutines & Flow** for async operations
 - 📡 **Retrofit 2 + OkHttp 3** for networking
 - 📦 **kotlinx.serialization** for JSON parsing
-- 🛡️ **Type-safe error handling** with `Result<T>`
+- 🛡️ **Type-safe error handling** with `StarkKPageResult<T>` and `StarkKException`
+- 📄 **Cursor-based pagination** via `StarkKPage<T>`
 
 ---
 
@@ -17,33 +18,47 @@ Add the starkk module to your project:
 
 ```gradle
 dependencies {
-    implementation 'com.github.nynana233:starkK:1.3'
+    implementation 'com.github.nynana233:starkK:2.0'
 }
 ```
 
 ### 2. Create a Client
 
 ```kotlin
-
 val client = StarkKClient.Builder()
     .enableLogging(true)
     .build()
-
 ```
 
 ### 3. Fetch Data
 
-#### Option A: Single Page (Result-based)
+#### Option A: Single Page with cursor-based pagination
 ```kotlin
 viewModelScope.launch {
-    val result = client.getCharacters(page = 1, pageSize = 20)
-    result
-        .onSuccess { paginated -> /* use paginated.data */ }
-        .onFailure { error -> /* handle error */ }
+    client.getCharacters(page = 1, pageSize = 20)
+        .onSuccess { page ->
+            val characters = page.items
+            val currentPage = page.currentPage
+            val hasMore = page.hasNext
+        }
+        .onFailure { error -> /* handle StarkKException */ }
 }
 ```
 
-#### Option B: All Pages (Flow-based, auto-pagination)
+#### Option B: Navigate pages with cursors
+```kotlin
+// Fetch first page
+val result = client.getCharacters(page = 1, pageSize = 20)
+result.onSuccess { page ->
+    // Navigate forward — no URLs needed
+    val nextResult = client.nextCharacters(page)
+    nextResult?.onSuccess { nextPage ->
+        // nextPage.items, nextPage.currentPage, etc.
+    }
+}
+```
+
+#### Option C: All Pages (Flow-based, auto-pagination)
 ```kotlin
 import com.starkk.sdk.extensions.getCharactersAsFlow
 
@@ -52,6 +67,24 @@ viewModelScope.launch {
         // Called once per page, automatically walks all pages
     }
 }
+```
+
+---
+
+## 🛡️ Error Handling
+
+Errors are represented as `StarkKException` subtypes:
+
+```kotlin
+client.getCharacters()
+    .onSuccess { page -> /* use page.items */ }
+    .onFailure { error ->
+        when (error) {
+            is StarkKException.HttpError -> Log.e("SDK", "HTTP ${error.code}: ${error.message}")
+            is StarkKException.NetworkError -> Log.e("SDK", "Network issue: ${error.message}")
+            is StarkKException.UnknownError -> Log.e("SDK", "Unexpected: ${error.message}")
+        }
+    }
 ```
 
 ---
@@ -75,4 +108,3 @@ Use the issue template at `starkk/issue-template.md`.
 ---
 
 **Built with ❤️ using 100% Kotlin**
-
