@@ -41,14 +41,12 @@ val client = StarkKClient.Builder()
 ### Fetch a Single Page of Characters
 ```kotlin
 viewModelScope.launch {
-    val result = client.getCharacters(page = 1, pageSize = 25)
-    
-    result
-        .onSuccess { paginated ->
-            val characters: List<Character> = paginated.data
-            val nextPageUrl: String? = paginated.next
-            val prevPageUrl: String? = paginated.prev
-            
+    client.getCharacters(page = 1, pageSize = 25)
+        .onSuccess { page ->
+            val characters: List<Character> = page.items
+            val currentPage: Int = page.currentPage
+            val hasMore: Boolean = page.hasNext
+
             characters.forEach { character ->
                 println("Name: ${character.name}")
                 println("Gender: ${character.gender}")
@@ -82,51 +80,62 @@ viewModelScope.launch {
 ### Search Characters by Name
 ```kotlin
 viewModelScope.launch {
-    val result = client.getCharactersByName("Jon Snow", pageSize = 10)
-    
-    result.onSuccess { paginated ->
-        if (paginated.data.isEmpty()) {
-            showMessage("No characters found")
-        } else {
-            val character = paginated.data.first()
-            displayCharacter(character)
+    client.getCharactersByName("Jon Snow", pageSize = 10)
+        .onSuccess { page ->
+            if (page.items.isEmpty()) {
+                showMessage("No characters found")
+            } else {
+                val character = page.items.first()
+                displayCharacter(character)
+            }
         }
-    }
 }
 ```
 
 ### Advanced Character Search with Filters
 ```kotlin
 viewModelScope.launch {
-    val result = client.getCharacters(
+    client.getCharacters(
         name = "Daenerys",
         gender = "Female",
         culture = "Valyrian",
         isAlive = true,
         pageSize = 20
     )
-    
-    result.onSuccess { paginated ->
-        val characters = paginated.data
-        // Process results
-    }
+        .onSuccess { page ->
+            val characters = page.items
+            // Process results
+        }
 }
 ```
 
-### Manual Pagination
+### Cursor-Based Pagination
 ```kotlin
-var allCharacters = mutableListOf<Character>()
-var nextPageUrl: String? = "https://anapioficeandfire.com/api/characters?page=1"
+// Fetch page 1, then navigate forward using cursors
+var currentPage: StarkKPage<Character>? = null
 
-while (nextPageUrl != null) {
-    val result = client.getCharactersByUrl(nextPageUrl)
-    
-    result.onSuccess { paginated ->
-        allCharacters.addAll(paginated.data)
-        nextPageUrl = paginated.next
-    }.onFailure { error ->
-        nextPageUrl = null  // Stop on error
+client.getCharacters(page = 1, pageSize = 20)
+    .onSuccess { page ->
+        currentPage = page
+        displayCharacters(page.items)
     }
+
+// Navigate to next page — no URLs needed
+currentPage?.let { cursor ->
+    client.nextCharacters(cursor)
+        ?.onSuccess { nextPage ->
+            currentPage = nextPage
+            displayCharacters(nextPage.items)
+        }
+}
+
+// Navigate to previous page
+currentPage?.let { cursor ->
+    client.previousCharacters(cursor)
+        ?.onSuccess { prevPage ->
+            currentPage = prevPage
+            displayCharacters(prevPage.items)
+        }
 }
 ```
 
@@ -150,36 +159,45 @@ viewModelScope.launch {
 ### Search Houses by Name
 ```kotlin
 viewModelScope.launch {
-    val result = client.getHousesByName("House Stark")
-    
-    result.onSuccess { paginated ->
-        val house = paginated.data.firstOrNull()
-        if (house != null) {
-            println("Found: ${house.name}")
-            println("Region: ${house.region}")
-            println("Words: ${house.words}")
-            println("Seats: ${house.seats}")
+    client.getHousesByName("House Stark")
+        .onSuccess { page ->
+            val house = page.items.firstOrNull()
+            if (house != null) {
+                println("Found: ${house.name}")
+                println("Region: ${house.region}")
+                println("Words: ${house.words}")
+                println("Seats: ${house.seats}")
+            }
         }
-    }
 }
 ```
 
 ### Advanced House Filtering
 ```kotlin
 viewModelScope.launch {
-    val result = client.getHouses(
+    client.getHouses(
         region = "The Reach",
         hasWords = true,
         hasTitles = true,
         pageSize = 20
     )
-    
-    result.onSuccess { paginated ->
-        paginated.data.forEach { house ->
-            println("${house.name}: ${house.words}")
+        .onSuccess { page ->
+            page.items.forEach { house ->
+                println("${house.name}: ${house.words}")
+            }
         }
-    }
 }
+```
+
+### House Cursor Navigation
+```kotlin
+client.getHouses(page = 1, pageSize = 10)
+    .onSuccess { page ->
+        // Navigate forward
+        client.nextHouses(page)?.onSuccess { nextPage -> /* ... */ }
+        // Navigate backward
+        client.previousHouses(page)?.onSuccess { prevPage -> /* ... */ }
+    }
 ```
 
 ## 4️⃣ Fetching Books
@@ -187,17 +205,16 @@ viewModelScope.launch {
 ### Get Books (Single Page)
 ```kotlin
 viewModelScope.launch {
-    val result = client.getBooks(page = 1, pageSize = 10)
-    
-    result.onSuccess { paginated ->
-        paginated.data.forEach { book ->
-            println("Title: ${book.name}")
-            println("ISBN: ${book.isbn}")
-            println("Released: ${book.released}")
-            println("Authors: ${book.authors}")
-            println("Pages: ${book.numberOfPages}")
+    client.getBooks(page = 1, pageSize = 10)
+        .onSuccess { page ->
+            page.items.forEach { book ->
+                println("Title: ${book.name}")
+                println("ISBN: ${book.isbn}")
+                println("Released: ${book.released}")
+                println("Authors: ${book.authors}")
+                println("Pages: ${book.numberOfPages}")
+            }
         }
-    }
 }
 ```
 
@@ -217,48 +234,60 @@ viewModelScope.launch {
 ### Search Books by Name
 ```kotlin
 viewModelScope.launch {
-    val result = client.getBooksByName("A Game of Thrones")
-    
-    result.onSuccess { paginated ->
-        val book = paginated.data.firstOrNull()
-        displayBookDetails(book)
-    }
+    client.getBooksByName("A Game of Thrones")
+        .onSuccess { page ->
+            val book = page.items.firstOrNull()
+            displayBookDetails(book)
+        }
 }
+```
+
+### Book Cursor Navigation
+```kotlin
+client.getBooks(page = 1, pageSize = 5)
+    .onSuccess { page ->
+        client.nextBooks(page)?.onSuccess { nextPage -> /* ... */ }
+        client.previousBooks(page)?.onSuccess { prevPage -> /* ... */ }
+    }
 ```
 
 ## 5️⃣ Error Handling Patterns
 
-### Pattern 1: onSuccess / onFailure
+### Pattern 1: onSuccess / onFailure (Recommended)
 ```kotlin
-val result = client.getCharactersByName("Tyrion")
-
-result
-    .onSuccess { paginated ->
+client.getCharactersByName("Tyrion")
+    .onSuccess { page ->
         // Success branch
-        updateUI(paginated.data)
+        updateUI(page.items)
     }
     .onFailure { exception ->
-        // Error branch
+        // Error branch — typed exceptions
         when (exception) {
-            is StarkKClient.HttpException -> {
+            is StarkKException.HttpError -> {
                 showError("HTTP ${exception.code}: ${exception.message}")
             }
-            else -> {
+            is StarkKException.NetworkError -> {
                 showError("Network error: ${exception.message}")
+            }
+            is StarkKException.UnknownError -> {
+                showError("Unexpected error: ${exception.message}")
             }
         }
     }
 ```
 
-### Pattern 2: getOrNull() with Elvis Operator
+### Pattern 2: Direct Result Inspection
 ```kotlin
 val result = client.getCharactersByName("Jon Snow")
-val character = result.getOrNull()?.data?.firstOrNull()
 
-if (character != null) {
-    displayCharacter(character)
-} else {
-    showError("Character not found or request failed")
+when (result) {
+    is StarkKPageResult.Success -> {
+        val character = result.page.items.firstOrNull()
+        displayCharacter(character)
+    }
+    is StarkKPageResult.Failure -> {
+        showError(result.exception.message)
+    }
 }
 ```
 
@@ -269,9 +298,9 @@ viewModelScope.launch {
         client.getCharactersAsFlow().collect { characters ->
             updateUI(characters)
         }
-    } catch (e: StarkKClient.HttpException) {
+    } catch (e: StarkKException.HttpError) {
         showError("Server error: ${e.code}")
-    } catch (e: Exception) {
+    } catch (e: StarkKException) {
         showError("Error: ${e.message}")
     }
 }
@@ -279,41 +308,40 @@ viewModelScope.launch {
 
 ## 6️⃣ Pagination Patterns
 
-### Access Pagination URLs
+### Access Pagination State
 ```kotlin
-val result = client.getCharacters(pageSize = 10)
-
-result.onSuccess { paginated ->
-    paginated.apply {
-        println("Current page has ${data.size} items")
-        println("Has next page: ${hasNextPage}")
-        println("Has prev page: ${hasPrevPage}")
-        println("Next URL: $next")
-        println("Prev URL: $prev")
-        println("First URL: $first")
-        println("Last URL: $last")
+client.getCharacters(pageSize = 10)
+    .onSuccess { page ->
+        println("Current page: ${page.currentPage}")
+        println("Items on this page: ${page.items.size}")
+        println("Has next page: ${page.hasNext}")
+        println("Has previous page: ${page.hasPrevious}")
     }
-}
 ```
 
 ### Fetch Specific Page
 ```kotlin
 // Fetch page 5
-val result = client.getCharacters(page = 5, pageSize = 20)
+client.getCharacters(page = 5, pageSize = 20)
 ```
 
-### Fetch Next/Previous Page
+### Navigate Pages with Cursors
 ```kotlin
-var currentResult = client.getCharacters(page = 1, pageSize = 20).getOrNull()
+// Store the current page cursor
+var cursor: StarkKPage<Character>? = null
 
-// Fetch next page
-currentResult?.next?.let { nextUrl ->
-    currentResult = client.getCharactersByUrl(nextUrl).getOrNull()
+// Initial load
+client.getCharacters(page = 1, pageSize = 20)
+    .onSuccess { page -> cursor = page }
+
+// Next page
+cursor?.let { current ->
+    client.nextCharacters(current)?.onSuccess { page -> cursor = page }
 }
 
-// Fetch previous page
-currentResult?.prev?.let { prevUrl ->
-    currentResult = client.getCharactersByUrl(prevUrl).getOrNull()
+// Previous page
+cursor?.let { current ->
+    client.previousCharacters(current)?.onSuccess { page -> cursor = page }
 }
 ```
 
@@ -323,6 +351,9 @@ currentResult?.prev?.let { prevUrl ->
 ```kotlin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.starkk.sdk.StarkKClient
+import com.starkk.sdk.models.Character
+import com.starkk.sdk.models.StarkKPage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -340,10 +371,50 @@ class CharacterViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    fun loadCharacters() {
+    private val _currentPage = MutableStateFlow(1)
+    val currentPage: StateFlow<Int> = _currentPage.asStateFlow()
+
+    private var lastPage: StarkKPage<Character>? = null
+
+    fun loadCharacters(page: Int = 1, pageSize: Int = 20) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+
+            client.getCharacters(page = page, pageSize = pageSize)
+                .onSuccess { starkKPage ->
+                    _characters.value = starkKPage.items
+                    _currentPage.value = starkKPage.currentPage
+                    lastPage = starkKPage
+                }
+                .onFailure { exception ->
+                    _error.value = exception.message
+                }
+
+            _isLoading.value = false
+        }
+    }
+
+    fun nextPage() {
+        val cursor = lastPage ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            client.nextCharacters(cursor)
+                ?.onSuccess { starkKPage ->
+                    _characters.value = starkKPage.items
+                    _currentPage.value = starkKPage.currentPage
+                    lastPage = starkKPage
+                }
+                ?.onFailure { _error.value = it.message }
+            _isLoading.value = false
+        }
+    }
+
+    fun loadAll() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            _characters.value = emptyList()
 
             try {
                 client.getCharactersAsFlow().collect { page ->
@@ -366,6 +437,7 @@ fun CharacterListScreen(viewModel: CharacterViewModel) {
     val characters by viewModel.characters.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val currentPage by viewModel.currentPage.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadCharacters()
@@ -376,9 +448,15 @@ fun CharacterListScreen(viewModel: CharacterViewModel) {
         error != null -> Text("Error: $error")
         characters.isEmpty() -> Text("No characters")
         else -> {
-            LazyColumn {
-                items(characters) { character ->
-                    CharacterItem(character)
+            Column {
+                Text("Page $currentPage")
+                LazyColumn {
+                    items(characters) { character ->
+                        CharacterItem(character)
+                    }
+                }
+                Row {
+                    Button(onClick = { viewModel.nextPage() }) { Text("Next →") }
                 }
             }
         }
@@ -392,31 +470,30 @@ fun CharacterListScreen(viewModel: CharacterViewModel) {
 ```kotlin
 viewModelScope.launch {
     // First request
-    val charactersResult = client.getCharactersByName("Jon Snow")
-    
-    charactersResult.onSuccess { characterPage ->
-        val character = characterPage.data.firstOrNull()
-        
-        // Second request based on first result
-        character?.let { char ->
-            val houseResult = client.getHousesByName("House Stark")
-            houseResult.onSuccess { housePage ->
-                val house = housePage.data.firstOrNull()
-                displayCharacterAndHouse(char, house)
+    client.getCharactersByName("Jon Snow")
+        .onSuccess { characterPage ->
+            val character = characterPage.items.firstOrNull()
+
+            // Second request based on first result
+            character?.let { char ->
+                client.getHousesByName("House Stark")
+                    .onSuccess { housePage ->
+                        val house = housePage.items.firstOrNull()
+                        displayCharacterAndHouse(char, house)
+                    }
             }
         }
-    }
 }
 ```
 
 ### Parallel Requests
 ```kotlin
 viewModelScope.launch {
-    val charactersDeferred = async { 
-        client.getCharacters(pageSize = 50) 
+    val charactersDeferred = async {
+        client.getCharacters(pageSize = 50)
     }
-    val housesDeferred = async { 
-        client.getHouses(pageSize = 50) 
+    val housesDeferred = async {
+        client.getHouses(pageSize = 50)
     }
 
     val charactersResult = charactersDeferred.await()
@@ -424,7 +501,7 @@ viewModelScope.launch {
 
     charactersResult.onSuccess { chars ->
         housesResult.onSuccess { houses ->
-            displayBoth(chars, houses)
+            displayBoth(chars.items, houses.items)
         }
     }
 }
@@ -476,16 +553,14 @@ val client = StarkKClient.Builder()
 ```kotlin
 viewModelScope.launch {
     val start = System.currentTimeMillis()
-    
-    val result = client.getCharactersByName("Jon Snow")
-    
-    val duration = System.currentTimeMillis() - start
-    
-    result
-        .onSuccess { paginated ->
-            Log.d("StarkK", "Fetched in ${duration}ms: ${paginated.data.size} items")
+
+    client.getCharactersByName("Jon Snow")
+        .onSuccess { page ->
+            val duration = System.currentTimeMillis() - start
+            Log.d("StarkK", "Fetched in ${duration}ms: ${page.items.size} items")
         }
         .onFailure { error ->
+            val duration = System.currentTimeMillis() - start
             Log.e("StarkK", "Failed after ${duration}ms: ${error.message}")
         }
 }
@@ -495,14 +570,18 @@ viewModelScope.launch {
 
 | Task | Method | Returns |
 |------|--------|---------|
-| Get page of characters | `getCharacters(page, pageSize)` | `Result<PaginatedResult<Character>>` |
+| Get page of characters | `getCharacters(page, pageSize)` | `StarkKPageResult<Character>` |
 | Get all characters | `getCharactersAsFlow(pageSize)` | `Flow<List<Character>>` |
-| Search character | `getCharactersByName(name)` | `Result<PaginatedResult<Character>>` |
-| Get page of houses | `getHouses(page, pageSize)` | `Result<PaginatedResult<House>>` |
+| Search character | `getCharactersByName(name)` | `StarkKPageResult<Character>` |
+| Next character page | `nextCharacters(page)` | `StarkKPageResult<Character>?` |
+| Previous character page | `previousCharacters(page)` | `StarkKPageResult<Character>?` |
+| Get page of houses | `getHouses(page, pageSize)` | `StarkKPageResult<House>` |
 | Get all houses | `getHousesAsFlow(pageSize)` | `Flow<List<House>>` |
-| Search house | `getHousesByName(name)` | `Result<PaginatedResult<House>>` |
-| Get page of books | `getBooks(page, pageSize)` | `Result<PaginatedResult<Book>>` |
+| Search house | `getHousesByName(name)` | `StarkKPageResult<House>` |
+| Next house page | `nextHouses(page)` | `StarkKPageResult<House>?` |
+| Previous house page | `previousHouses(page)` | `StarkKPageResult<House>?` |
+| Get page of books | `getBooks(page, pageSize)` | `StarkKPageResult<Book>` |
 | Get all books | `getBooksAsFlow(pageSize)` | `Flow<List<Book>>` |
-| Search book | `getBooksByName(name)` | `Result<PaginatedResult<Book>>` |
-
-
+| Search book | `getBooksByName(name)` | `StarkKPageResult<Book>` |
+| Next book page | `nextBooks(page)` | `StarkKPageResult<Book>?` |
+| Previous book page | `previousBooks(page)` | `StarkKPageResult<Book>?` |
