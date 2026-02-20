@@ -45,6 +45,7 @@ dependencies {
 
     // Shared SDK libraries
     implementation(libs.androidx.core.ktx)
+    implementation(appSampleLibs.material)
 
     // App-sample specific libraries
     implementation(appSampleLibs.androidx.lifecycle.runtime.ktx)

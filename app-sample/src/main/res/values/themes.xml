@@ -1,4 +1,4 @@
 <resources>
 
-    <style name="Theme.StarkK" parent="Theme.MaterialComponents.Light" />
+    <style name="Theme.StarkK" parent="Theme.Material3.Light.NoActionBar" />
 </resources>
